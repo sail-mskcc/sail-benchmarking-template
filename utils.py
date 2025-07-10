@@ -8,6 +8,7 @@ import scanpy as sc
 
 ##### ADATA UTILITIES #####
 
+
 def compute_gene_category_qc_metrics(
     adatas: dict,
     category_label: str,
@@ -66,6 +67,7 @@ def add_gene_set_content_to_adatas(
 
 ### BAR PLOTS ###
 
+
 # Helper Functions
 def adaptive_formatter(x, _):
     """
@@ -111,7 +113,9 @@ def plot_scalar_metric(
     # Setup
     unique_tissues = df["Tissue"].unique()
     sns.set_theme(style="white", font_scale=1.1)
-    fig, axes = plt.subplots(1, len(unique_tissues), figsize=(5 * len(unique_tissues), 5), sharey=True)
+    fig, axes = plt.subplots(
+        1, len(unique_tissues), figsize=(5 * len(unique_tissues), 5), sharey=True
+    )
     if len(unique_tissues) == 1:
         axes = [axes]
 
@@ -136,7 +140,10 @@ def plot_scalar_metric(
             ax.annotate(
                 f"{int(val):,}",
                 (p.get_x() + p.get_width() / 2.0, val),
-                ha="center", va="bottom", fontsize=10, weight="bold"
+                ha="center",
+                va="bottom",
+                fontsize=10,
+                weight="bold",
             )
     if not title:
         title = f"{metric_label} by Protocol Across Tissues"
@@ -262,6 +269,7 @@ def plot_adata_metric_histogram(
     )
     return fig
 
+
 # Function to plot a metric distribution from multiple AnnData objects and create a subplot for each unique tissue. Same as histogram but uses
 # violin plots.
 
@@ -357,7 +365,9 @@ def plot_celltype_proportions_by_protocol(
     tissue: str,
     protocol_color_palette: dict = None,
     annotate: bool = False,
-    ) -> plt.Figure:
+    metric: str = "majority_voting",
+    percentage: bool = False,
+) -> plt.Figure:
     """
     Plots bar chart of cell type proportions by protocol for a given tissue using Seaborn.
 
@@ -370,28 +380,27 @@ def plot_celltype_proportions_by_protocol(
     Returns:
         Matplotlib figure object.
     """
-    obs = adata.obs[["protocol", "majority_voting"]].copy()
+    obs = adata.obs[["protocol", metric]].copy()
 
     # Count and proportion
-    counts = (
-        obs.groupby(["protocol", "majority_voting"]).size().reset_index(name="count")
-    )
+    counts = obs.groupby(["protocol", metric]).size().reset_index(name="count")
     total_per_protocol = counts.groupby("protocol")["count"].transform("sum")
     counts["proportion"] = counts["count"] / total_per_protocol
 
     # Sort cell types
-    counts["majority_voting"] = counts["majority_voting"].astype(str)
-    counts = counts.sort_values("majority_voting")
+    counts[metric] = counts[metric].astype(str)
+    counts = counts.sort_values(metric)
     counts["percentage"] = counts["proportion"] * 100
 
     # Set up the plot
     sns.set_theme(style="white", font_scale=1.1)
     fig, ax = plt.subplots(figsize=(10, 6))
 
+    value_to_plot = "percentage" if percentage else "count"
     sns.barplot(
         data=counts,
-        x="majority_voting",
-        y="percentage",
+        x=metric,
+        y=value_to_plot,
         hue="protocol",
         palette=protocol_color_palette,
         ax=ax,
@@ -402,25 +411,29 @@ def plot_celltype_proportions_by_protocol(
         for p in ax.patches:
             height = p.get_height()
             if height > 0:
+                annotation = f"{int(height)}" if not percentage else f"{height:.2f}%"
                 ax.annotate(
-                    f"{height:.2f}",
+                    annotation,
                     (p.get_x() + p.get_width() / 2.0, height),
                     ha="center",
                     va="bottom",
                     fontsize=9,
                 )
 
+    title = f"Cell Type Percentages by Protocol ({tissue})" if  percentage else f"Cell Type Counts by Protocol ({tissue})"
+
     # Format axes and legend
     ax.set_title(
-        f"Cell Type Proportions by Protocol ({tissue})", fontsize=14, weight="bold"
+        title, fontsize=14, weight="bold"
     )
+    ylabel = "Percentage" if percentage else "Cell Type Count"
     ax.set_xlabel("Cell Type", fontsize=12)
-    ax.set_ylabel("Percentage", fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
     ax.legend(title="Protocol", bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
     return fig
-    
+
 
 def plot_cluster_protocol_stackplots(
     combined_by_tissue: Dict[str, sc.AnnData],
@@ -507,7 +520,8 @@ def plot_cluster_protocol_stackplots(
 
     fig.legend(
         handles=[
-            mpl.patches.Patch(color=c, label=p) for p, c in protocol_color_palette.items()
+            mpl.patches.Patch(color=c, label=p)
+            for p, c in protocol_color_palette.items()
         ],
         title="Protocol",
         loc="upper right",
@@ -515,11 +529,10 @@ def plot_cluster_protocol_stackplots(
     )
     if not title:
         title = "Cluster Composition by Protocol Across Tissues"
-    plt.suptitle(
-        title, fontsize=16, weight="bold"
-    )
+    plt.suptitle(title, fontsize=16, weight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     return fig
+
 
 def plot_doublet_stack_by_cluster(
     combined_by_tissue: Dict[str, "sc.AnnData"],
@@ -593,6 +606,7 @@ def plot_doublet_stack_by_cluster(
     plt.tight_layout()
     return fig
 
+
 def plot_cluster_metric_boxplots(
     combined_by_tissue: Dict[str, sc.AnnData],
     metric: str = "total_counts",
@@ -623,8 +637,10 @@ def plot_cluster_metric_boxplots(
     for tissue, adata in combined_by_tissue.items():
         df = adata.obs[[cluster_key, metric]].copy()
         df["Tissue"] = tissue
-   
-        df[cluster_key] = df[cluster_key].astype(int)
+
+        # df[cluster_key] = df[cluster_key].astype(int)
+        if pd.api.types.is_numeric_dtype(df[cluster_key]):
+            df[cluster_key] = df[cluster_key].astype(int)
         records.append(df)
 
     df_all = pd.concat(records)
@@ -651,13 +667,13 @@ def plot_cluster_metric_boxplots(
             # Convert cluster to string for categorical handling
             df_tissue = df_tissue.copy()
             df_tissue[cluster_key] = df_tissue[cluster_key].astype(str)
-            
+
             # Get cluster order as strings
             cluster_order = sorted(
                 df_tissue[cluster_key].unique(),
-                key=lambda x: int(x) if x.isdigit() else x
+                key=lambda x: int(x) if x.isdigit() else x,
             )
-            
+
             sns.boxplot(
                 data=df_tissue,
                 x=metric,
@@ -673,12 +689,14 @@ def plot_cluster_metric_boxplots(
 
             # Apply log scale to x-axis if requested
             if log_scale:
-                ax.set_xscale('log')
-                ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(adaptive_formatter))
-            
+                ax.set_xscale("log")
+                ax.xaxis.set_major_formatter(
+                    mpl.ticker.FuncFormatter(adaptive_formatter)
+                )
+
             ax.set_xlabel(metric.replace("_", " ").title())
             ax.set_ylabel("Cluster")
-            
+
             # Add vertical reference line if specified
             if axline is not None:
                 ax.axvline(axline, color="red", linestyle="--", linewidth=1)
@@ -686,13 +704,13 @@ def plot_cluster_metric_boxplots(
             # Convert cluster to string for categorical handling
             df_tissue = df_tissue.copy()
             df_tissue[cluster_key] = df_tissue[cluster_key].astype(str)
-            
+
             # Get cluster order as strings
             cluster_order = sorted(
                 df_tissue[cluster_key].unique(),
-                key=lambda x: int(x) if x.isdigit() else x
+                key=lambda x: int(x) if x.isdigit() else x,
             )
-            
+
             sns.boxplot(
                 data=df_tissue,
                 x=cluster_key,
@@ -703,16 +721,18 @@ def plot_cluster_metric_boxplots(
                 linewidth=0.75,
                 order=cluster_order,
             )
-            
+
             # Apply log scale to y-axis if requested
             if log_scale:
-                ax.set_yscale('log')
-                ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(adaptive_formatter))
+                ax.set_yscale("log")
+                ax.yaxis.set_major_formatter(
+                    mpl.ticker.FuncFormatter(adaptive_formatter)
+                )
 
             ax.set_xlabel("Cluster")
             ax.set_ylabel(metric.replace("_", " ").title())
-            ax.tick_params(axis='x', rotation=45)
-            
+            ax.tick_params(axis="x", rotation=45)
+
             # Add horizontal reference line if specified
             if axline is not None:
                 ax.axhline(axline, color="red", linestyle="--", linewidth=1)
@@ -720,13 +740,16 @@ def plot_cluster_metric_boxplots(
         ax.set_title(tissue, fontsize=13, weight="bold")
 
     if not title:
-        title = f"{metric.replace('_', ' ').title()} Distribution by Cluster Across Tissues"
+        title = (
+            f"{metric.replace('_', ' ').title()} Distribution by Cluster Across Tissues"
+        )
     plt.suptitle(title, fontsize=16, weight="bold")
     plt.tight_layout(rect=[0, 0, 0.95, 0.99])
     return fig
 
 
 ### UMAP PLOTS ###
+
 
 def plot_umap_by_obs_feature(
     combined_by_tissue: Dict[str, sc.AnnData],
@@ -739,7 +762,7 @@ def plot_umap_by_obs_feature(
     clip_values: tuple = None,
     shuffle: bool = True,
     vertical: bool = False,
-    legend_bbox_to_anchor: tuple = (1.05, 1.05)
+    legend_bbox_to_anchor: tuple = (1.05, 1.05),
 ) -> plt.Figure:
     """
     Plot UMAPs for each tissue colored by a feature in .obs.
@@ -845,7 +868,14 @@ def plot_umap_by_obs_feature(
             )
             if i == len(tissues) - 1:
                 if vertical:
-                    cb = plt.colorbar(scatter, ax=ax, location = "bottom", orientation = "horizontal", fraction=0.046, pad=0.15)
+                    cb = plt.colorbar(
+                        scatter,
+                        ax=ax,
+                        location="bottom",
+                        orientation="horizontal",
+                        fraction=0.046,
+                        pad=0.15,
+                    )
                 else:
                     cb = plt.colorbar(scatter, ax=ax, fraction=0.046, pad=0.14)
                 if log_scale:
@@ -863,7 +893,7 @@ def plot_umap_by_obs_feature(
                     raw_ticks = np.linspace(clip_low, clip_high, 6)
                     cb.set_ticks(raw_ticks)
                     cb.set_ticklabels([f"{int(t):,}" for t in raw_ticks])
-                
+
                 rotation = 0 if vertical else 270
                 labelpad = -160 if vertical else 15
                 loc = "top" if vertical else "center"
