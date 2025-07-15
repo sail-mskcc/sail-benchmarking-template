@@ -1,11 +1,14 @@
 from typing import Callable, Dict, Union
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 import numpy as np
+import pandas as pd
 import scanpy as sc
+import seaborn as sns
+
 from .common_plotting_utils import adaptive_formatter
+
 
 # AnnData Plotting Functions
 def plot_scalar_metric(
@@ -16,7 +19,7 @@ def plot_scalar_metric(
     title: str = None,
     annotate: bool = True,
     protocol_color_palette: dict = None,
-    adaptive_formatter: Callable = adaptive_formatter
+    adaptive_formatter: Callable = adaptive_formatter,
 ):
     """
     Generic function to plot scalar metrics computed on each sample's data (AnnData or DataFrame),
@@ -68,7 +71,7 @@ def plot_scalar_metric(
         ax.set_xlabel("")
         ax.set_ylabel(metric_label if i == 0 else "")
         ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(adaptive_formatter))
-        
+
         # Optionally annotate bars
         if annotate:
             for p in ax.patches:
@@ -150,7 +153,6 @@ def plot_adata_metric_histogram(
     # Collect unique tissues and protocols
     unique_tissues = df["Tissue"].unique()
     unique_protocols = df["Protocol"].unique()
-
 
     # Create color palette if not provided
     if protocol_color_palette is None:
@@ -332,5 +334,3 @@ def plot_adata_metric_violin(
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     return fig
-
-

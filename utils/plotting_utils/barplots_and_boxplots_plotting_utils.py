@@ -1,11 +1,14 @@
+from typing import Dict, List, Tuple
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 import numpy as np
+import pandas as pd
 import scanpy as sc
-from typing import Dict, List, Tuple
+import seaborn as sns
+
 from .common_plotting_utils import adaptive_formatter
+
 
 def plot_celltype_proportions_by_protocol(
     adata: sc.AnnData,
@@ -18,7 +21,7 @@ def plot_celltype_proportions_by_protocol(
     plot_width: float = 10.0,
     plot_height: float = 6.0,
     legend_bbox_to_anchor: tuple = (1.05, 1),
-    title: str = None
+    title: str = None,
 ) -> plt.Figure:
     """
     Plots bar chart of cell type proportions by protocol for a given tissue using Seaborn.
@@ -43,16 +46,20 @@ def plot_celltype_proportions_by_protocol(
     # Sort cell types
     counts[metric] = counts[metric].astype(str)
     counts = counts.sort_values(metric)
-    
+
     # Set up the plot
     sns.set_theme(style="white", font_scale=1.1)
     fig, ax = plt.subplots(figsize=(plot_width, plot_height))
 
     # Use the provided color palette or default to a seaborn palette
     if protocol_color_palette is None:
-        protocol_color_palette = sns.color_palette("husl", n_colors=counts[protocol_key].nunique())
-        protocol_color_palette = dict(zip(counts[protocol_key].unique(), protocol_color_palette))
-        
+        protocol_color_palette = sns.color_palette(
+            "husl", n_colors=counts[protocol_key].nunique()
+        )
+        protocol_color_palette = dict(
+            zip(counts[protocol_key].unique(), protocol_color_palette)
+        )
+
     # Plotting
     value_to_plot = "percentage" if percentage else "count"
     sns.barplot(
@@ -81,11 +88,13 @@ def plot_celltype_proportions_by_protocol(
 
     # Set title and labels
     if title is None:
-        title = f"Cell Type Percentages by Protocol ({tissue})" if  percentage else f"Cell Type Counts by Protocol ({tissue})"
+        title = (
+            f"Cell Type Percentages by Protocol ({tissue})"
+            if percentage
+            else f"Cell Type Counts by Protocol ({tissue})"
+        )
 
-    ax.set_title(
-        title, fontsize=14, weight="bold"
-    )
+    ax.set_title(title, fontsize=14, weight="bold")
 
     # Format axes and legend
     ylabel = "Percentage" if percentage else "Cell Type Count"
@@ -120,7 +129,9 @@ def plot_doublet_stack_by_cluster(
 
     # Total cells per cluster/protocol
     cell_counts = (
-        adata.obs.groupby([cluster_key, protocol_key]).size().reset_index(name="total_cells")
+        adata.obs.groupby([cluster_key, protocol_key])
+        .size()
+        .reset_index(name="total_cells")
     )
 
     # Doublet counts
@@ -143,17 +154,24 @@ def plot_doublet_stack_by_cluster(
     # Arrange Clusters
     leiden_clusters = summary[cluster_key].unique()
     x = np.arange(len(leiden_clusters))
-    
+
     # Create offsets for each protocol
     unique_protocols = summary[protocol_key].unique()
-    offsets = {protocol: (i - 0.5) * bar_width for i, protocol in enumerate(unique_protocols)}
+    offsets = {
+        protocol: (i - 0.5) * bar_width for i, protocol in enumerate(unique_protocols)
+    }
 
     # Create protocol color palette if not provided
     if protocol_color_palette is None:
-        protocol_color_palette = sns.color_palette("husl", n_colors=len(unique_protocols))
+        protocol_color_palette = sns.color_palette(
+            "husl", n_colors=len(unique_protocols)
+        )
         protocol_color_palette = dict(zip(protocols, protocol_color_palette))
 
-    faded_colors = {protocol: protocol_color_palette[protocol] + "80" for protocol in unique_protocols}
+    faded_colors = {
+        protocol: protocol_color_palette[protocol] + "80"
+        for protocol in unique_protocols
+    }
 
     for protocol in unique_protocols:
         subset = summary[summary[protocol_key] == protocol]
@@ -182,6 +200,7 @@ def plot_doublet_stack_by_cluster(
     plt.legend(loc="upper right", title="Protocol + Cell Type")
     plt.tight_layout()
     return fig
+
 
 # def plot_categorical_stack_by_cluster(
 #     combined_by_tissue: Dict[str, sc.AnnData],
@@ -313,8 +332,7 @@ def plot_categorical_stack_by_cluster(
 
     # Get counts per category/cluster/protocol
     summary = (
-        adata.obs
-        .groupby([cluster_key, protocol_key, category_key])
+        adata.obs.groupby([cluster_key, protocol_key, category_key])
         .size()
         .reset_index(name="count")
     )
@@ -333,19 +351,18 @@ def plot_categorical_stack_by_cluster(
 
     # Protocol base colors
     if protocol_color_palette is None:
-        protocol_color_palette = dict(zip(
-            protocols, sns.color_palette("Set2", len(protocols))
-        ))
-
+        protocol_color_palette = dict(
+            zip(protocols, sns.color_palette("Set2", len(protocols)))
+        )
 
     alpha_values = (1.0, 0.4)
     if highlight_false:
         alpha_values = (0.4, 1.0)  # Highlight 'False' category
 
-
     protocol_category_palette = {
         (protocol, category): mpl.colors.to_rgba(
-            protocol_color_palette[protocol], alpha=alpha_values[0] if bool(category) else alpha_values[1]
+            protocol_color_palette[protocol],
+            alpha=alpha_values[0] if bool(category) else alpha_values[1],
         )
         for protocol in protocols
         for category in categories
@@ -358,7 +375,11 @@ def plot_categorical_stack_by_cluster(
         grouped = proto_data.groupby(cluster_key)
 
         for cluster in clusters:
-            cluster_data = grouped.get_group(cluster) if cluster in grouped.groups else pd.DataFrame()
+            cluster_data = (
+                grouped.get_group(cluster)
+                if cluster in grouped.groups
+                else pd.DataFrame()
+            )
             bottom = 0
             for category in categories:
                 value = cluster_data[cluster_data[category_key] == category]["count"]
@@ -369,7 +390,9 @@ def plot_categorical_stack_by_cluster(
                     width=bar_width,
                     bottom=bottom,
                     color=protocol_category_palette[(protocol, category)],
-                    label=f"{protocol} ({category})" if cluster == clusters[0] else None,
+                    label=(
+                        f"{protocol} ({category})" if cluster == clusters[0] else None
+                    ),
                 )
                 bottom += count
 
@@ -381,10 +404,10 @@ def plot_categorical_stack_by_cluster(
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(
-        by_label.values(), 
-        by_label.keys(), 
-        title="Protocol + Category", 
-        loc="upper right"
+        by_label.values(),
+        by_label.keys(),
+        title="Protocol + Category",
+        loc="upper right",
     )
     plt.tight_layout()
     return fig
@@ -399,7 +422,7 @@ def plot_cluster_protocol_stackplots(
     tissue_key: str = "Tissue",
     title: str = None,
     subplot_width: float = 6.0,
-    subplot_height: float = 5.0
+    subplot_height: float = 5.0,
 ) -> plt.Figure:
     """
     For each tissue, plot a stacked barplot showing how many cells from each protocol
@@ -444,7 +467,7 @@ def plot_cluster_protocol_stackplots(
 
     # Normalize to proportions
     pivoted_norm = pivoted.div(pivoted.sum(axis=1), axis=0).reset_index()
-    
+
     # Get unique tissues and order them if specified
     unique_tissues = tissue_order or pivoted_norm[tissue_key].unique()
 
@@ -456,7 +479,10 @@ def plot_cluster_protocol_stackplots(
 
     # Set up the plot
     fig, axes = plt.subplots(
-        1, len(unique_tissues), figsize=(subplot_width * len(unique_tissues), subplot_height), sharey=True
+        1,
+        len(unique_tissues),
+        figsize=(subplot_width * len(unique_tissues), subplot_height),
+        sharey=True,
     )
 
     if len(unique_tissues) == 1:
@@ -550,15 +576,20 @@ def plot_cluster_metric_boxplots(
     else:
         unique_tissues = list(set(tissue_order))
 
-
     # Plot setup
     if vertical:
         fig, axes = plt.subplots(
-            len(unique_tissues), 1, figsize=(fig_width or 7, (fig_height or 6) * len(unique_tissues)), sharex=True
+            len(unique_tissues),
+            1,
+            figsize=(fig_width or 7, (fig_height or 6) * len(unique_tissues)),
+            sharex=True,
         )
     else:
         fig, axes = plt.subplots(
-            1, len(unique_tissues), figsize=(fig_width or 6 * len(unique_tissues), fig_height or 5), sharey=True
+            1,
+            len(unique_tissues),
+            figsize=(fig_width or 6 * len(unique_tissues), fig_height or 5),
+            sharey=True,
         )
 
     if len(unique_tissues) == 1:
@@ -574,7 +605,6 @@ def plot_cluster_metric_boxplots(
             df_tissue[cluster_key].unique(),
             key=lambda x: int(x) if x.isdigit() else x,
         )
-
 
         if vertical:
             sns.boxplot(

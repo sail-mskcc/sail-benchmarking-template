@@ -1,15 +1,18 @@
+from typing import Dict, Optional, Tuple, Union
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 import numpy as np
+import pandas as pd
 import scanpy as sc
-from typing import Dict, Union, Optional, Tuple
+import seaborn as sns
+
 
 # Convert string colormap to dict for categorical legend if needed
 def _make_categorical_palette(vals, cmap_name):
     cmap = mpl.colormaps.get_cmap(cmap_name).resampled(len(vals))
     return {val: mpl.colors.to_hex(cmap(i)) for i, val in enumerate(sorted(vals))}
+
 
 def _resolve_categorical_palette(values, palette):
     if isinstance(palette, str):
@@ -17,9 +20,11 @@ def _resolve_categorical_palette(values, palette):
         return _make_categorical_palette(unique_vals, palette)
     return palette
 
+
 def _process_continuous_values(values, clip_low, clip_high, log_scale):
     values = values.clip(clip_low, clip_high)
     return np.log1p(values) if log_scale else values
+
 
 def _add_colorbar(scatter, ax, vertical, log_scale, clip_low, clip_high, feature):
     location = "bottom" if vertical else "right"
@@ -54,7 +59,10 @@ def _add_colorbar(scatter, ax, vertical, log_scale, clip_low, clip_high, feature
     )
     return cb
 
-def _compute_clip_bounds(values: pd.Series, clip_values: Optional[Tuple[float, float]], log_scale: bool) -> Tuple[float, float]:
+
+def _compute_clip_bounds(
+    values: pd.Series, clip_values: Optional[Tuple[float, float]], log_scale: bool
+) -> Tuple[float, float]:
     if clip_values:
         clip_low = values.quantile(clip_values[0])
         if log_scale:
@@ -101,16 +109,20 @@ def plot_umap_by_obs_feature(
     sns.set_theme(style="white")
     tissues = list(combined_by_tissue.keys())
 
-
     if vertical:
         fig, axes = plt.subplots(
-            len(tissues), 1, figsize=(fig_width or 6, fig_height or 5 * len(tissues)), squeeze=False
+            len(tissues),
+            1,
+            figsize=(fig_width or 6, fig_height or 5 * len(tissues)),
+            squeeze=False,
         )
     else:
         fig, axes = plt.subplots(
-            1, len(tissues), figsize=(fig_width or 6 * len(tissues), fig_height or 5), squeeze=False
+            1,
+            len(tissues),
+            figsize=(fig_width or 6 * len(tissues), fig_height or 5),
+            squeeze=False,
         )
-
 
     for i, tissue in enumerate(tissues):
         ax = axes[i, 0] if vertical else axes[0, i]
@@ -157,8 +169,9 @@ def plot_umap_by_obs_feature(
             all_values = pd.concat(
                 [adata.obs[feature] for adata in combined_by_tissue.values()]
             )
-            clip_low, clip_high = _compute_clip_bounds(all_values, clip_values, log_scale)
-
+            clip_low, clip_high = _compute_clip_bounds(
+                all_values, clip_values, log_scale
+            )
 
             vmin, vmax = (
                 (np.log1p(clip_low), np.log1p(clip_high))
@@ -191,7 +204,6 @@ def plot_umap_by_obs_feature(
                     feature=feature,
                 )
 
-
         ax.set_title(tissue, weight="bold")
         ax.set_xlabel("UMAP1")
         ax.set_ylabel("UMAP2" if i == 0 else "")
@@ -223,7 +235,7 @@ def plot_umap_by_obs_feature(
             bbox_to_anchor=legend_bbox_to_anchor,
             fontsize="small",
             title_fontsize="medium",
-            )
+        )
 
     if not title:
         title = f"UMAP Colored by {feature.replace('_', ' ').title()}"

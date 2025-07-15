@@ -1,12 +1,12 @@
 import os
-import dill
-import polars as pl
-import numpy as np
-from typing import Dict, List
-from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from pprint import pprint
+from typing import Dict, List
 
+import dill
+import numpy as np
+import polars as pl
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # File and directory paths
@@ -20,6 +20,7 @@ SAMPLES = {
     "SF_LN": ("MB-4027_SF_LN", "Normal Liver", "Singulator+FACS"),
     "SL_LN": ("MB-4027_SL_LN", "Normal Liver", "Singulator+LeviCell"),
 }
+
 
 def sample_reads(x, n):
     """
@@ -82,10 +83,13 @@ def read_in_filtered_molecule_infos():
     """
     filtered_molecule_infos = {}
     for key in SAMPLES.keys():
-        file_path = os.path.join(ANALYSIS_DIR, key, f"{key}_filtered_molecule_info.parquet")
+        file_path = os.path.join(
+            ANALYSIS_DIR, key, f"{key}_filtered_molecule_info.parquet"
+        )
         df = pl.read_parquet(file_path)
         filtered_molecule_infos[key] = df
     return filtered_molecule_infos
+
 
 def compute_gene_discovery_downsampled_stats(
     filtered_molecule_infos: Dict[str, pl.DataFrame],
@@ -115,9 +119,7 @@ def compute_gene_discovery_downsampled_stats(
         for sample_id in filtered_molecule_infos
     }
 
-    downsampled_df_dict = {
-        sample_id: [] for sample_id in filtered_molecule_infos
-    }
+    downsampled_df_dict = {sample_id: [] for sample_id in filtered_molecule_infos}
 
     for sample_id, mol_info in filtered_molecule_infos.items():
         max_reads = target_total_reads[sample_id]
@@ -128,9 +130,8 @@ def compute_gene_discovery_downsampled_stats(
             downsampled_df = perform_downsampling(mol_info, target)
 
             # Group by cell once, computing total reads and mean reads
-            cell_reads = (
-                downsampled_df.group_by("cell")
-                .agg(pl.sum("reads").alias("reads"))
+            cell_reads = downsampled_df.group_by("cell").agg(
+                pl.sum("reads").alias("reads")
             )
 
             total_reads = cell_reads["reads"].sum()
@@ -142,10 +143,12 @@ def compute_gene_discovery_downsampled_stats(
             )
 
             # Group again by cell for final summaries
-            grouped = umi_counts.group_by("cell").agg([
-                pl.sum("umi_count").alias("umis"),
-                pl.count("gene_id").alias("genes"),
-            ])
+            grouped = umi_counts.group_by("cell").agg(
+                [
+                    pl.sum("umi_count").alias("umis"),
+                    pl.count("gene_id").alias("genes"),
+                ]
+            )
 
             median_umis = grouped["umis"].median()
             median_genes = grouped["genes"].median()
@@ -159,6 +162,7 @@ def compute_gene_discovery_downsampled_stats(
             downsampled_df_dict[sample_id].append(downsampled_df)
 
     return results, downsampled_df_dict
+
 
 def run_bootstrap_downsampling(
     filtered_molecule_infos: Dict[str, pl.DataFrame],
@@ -184,11 +188,13 @@ def run_bootstrap_downsampling(
     downsampled_df_bootstrap_list = []
 
     for i in range(n_bootstraps):
-        bootstrap_result, downsampled_df_dict = compute_gene_discovery_downsampled_stats(
-            filtered_molecule_infos=filtered_molecule_infos,
-            target_total_reads=target_total_reads,
-            n_steps=n_steps,
-            min_reads=min_reads,
+        bootstrap_result, downsampled_df_dict = (
+            compute_gene_discovery_downsampled_stats(
+                filtered_molecule_infos=filtered_molecule_infos,
+                target_total_reads=target_total_reads,
+                n_steps=n_steps,
+                min_reads=min_reads,
+            )
         )
         downsampled_df_bootstrap_list.append(downsampled_df_dict)
         for sample_id in bootstrap_result:
@@ -196,13 +202,17 @@ def run_bootstrap_downsampling(
                 bootstrap_results[sample_id][key].append(
                     bootstrap_result[sample_id][key]
                 )
-        
+
     # Summarize into plot-ready format
     summary_stats = defaultdict(dict)
     for sample_id, stats in bootstrap_results.items():
         # Each key is a list of n_bootstraps × n_steps
-        total_reads_array = np.array(stats["total_reads"])  # shape: (n_bootstraps, n_steps)
-        mean_reads_array = np.array(stats["mean_reads"])  # shape: (n_bootstraps, n_steps)
+        total_reads_array = np.array(
+            stats["total_reads"]
+        )  # shape: (n_bootstraps, n_steps)
+        mean_reads_array = np.array(
+            stats["mean_reads"]
+        )  # shape: (n_bootstraps, n_steps)
         median_umis_array = np.array(stats["median_umis"])
         median_genes_array = np.array(stats["median_genes"])
 
@@ -222,7 +232,6 @@ def run_bootstrap_downsampling(
     return bootstrap_results, downsampled_df_dict, summary_stats
 
 
-
 def main():
     # Read in filtered molecule_info DataFrames
     filtered_molecule_infos = read_in_filtered_molecule_infos()
@@ -237,18 +246,19 @@ def main():
         "SL_LN": 115_000_000,
     }
 
-
     # Run bootstrap downsampling
     n_bootstraps = 10  # Set to 1 for testing, change to 10 for full run
     n_steps = 10
     min_reads = 10_000_000
 
-    bootstrap_results, downsampled_df_bootstrap_list, summary_stats = run_bootstrap_downsampling(
-        filtered_molecule_infos=filtered_molecule_infos,
-        target_total_reads=target_total_reads,
-        n_bootstraps=n_bootstraps,
-        n_steps=n_steps,
-        min_reads=min_reads,
+    bootstrap_results, downsampled_df_bootstrap_list, summary_stats = (
+        run_bootstrap_downsampling(
+            filtered_molecule_infos=filtered_molecule_infos,
+            target_total_reads=target_total_reads,
+            n_bootstraps=n_bootstraps,
+            n_steps=n_steps,
+            min_reads=min_reads,
+        )
     )
 
     pprint(f"{bootstrap_results=}")
@@ -256,13 +266,34 @@ def main():
     pprint(f"{summary_stats=}")
 
     # Structure - list with len(n_bootstraps), each element is a dict with sample_id keys, each sample_id has a dict with keys and a list of n_steps dicts
-    with open(os.path.join("/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data", "other_script_run", "downsampling_molecule_infos.dill"), "wb") as f:
+    with open(
+        os.path.join(
+            "/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data",
+            "other_script_run",
+            "downsampling_molecule_infos.dill",
+        ),
+        "wb",
+    ) as f:
         dill.dump(downsampled_df_bootstrap_list, f)
 
-    with open(os.path.join("/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data", "other_script_run", "downsampling_bootstrap_results.dill"), "wb") as f:
+    with open(
+        os.path.join(
+            "/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data",
+            "other_script_run",
+            "downsampling_bootstrap_results.dill",
+        ),
+        "wb",
+    ) as f:
         dill.dump(bootstrap_results, f)
 
-    with open(os.path.join("/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data", "other_script_run", "downsampling_summary_stats.dill"), "wb") as f:
+    with open(
+        os.path.join(
+            "/data1/collab002/sail/projects/ongoing/benchmarks/sail-benchmarking-template/data",
+            "other_script_run",
+            "downsampling_summary_stats.dill",
+        ),
+        "wb",
+    ) as f:
         dill.dump(summary_stats, f)
 
 
