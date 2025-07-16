@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -10,7 +10,6 @@ import seaborn as sns
 from .common_plotting_utils import adaptive_formatter
 
 
-# AnnData Plotting Functions
 def plot_scalar_metric(
     data_dict: dict,
     metadata: dict,
@@ -20,6 +19,7 @@ def plot_scalar_metric(
     annotate: bool = True,
     protocol_color_palette: dict = None,
     adaptive_formatter: Callable = adaptive_formatter,
+    tissue_order: list | Tuple = None,  # NEW PARAM
 ):
     """
     Generic function to plot scalar metrics computed on each sample's data (AnnData or DataFrame),
@@ -27,27 +27,37 @@ def plot_scalar_metric(
 
     Args:
         data_dict: dict of sample data (AnnData or DataFrames), keyed by sample ID
-        metadata: dict mapping sample ID to (tissue, protocol)
+        metadata: dict mapping sample ID to {"tissue": ..., "protocol": ...}
         metric_func: function that computes scalar metric for each sample's data
         metric_label: string for Y-axis label and plot title
         protocol_color_palette: dict mapping protocol to colors
+        adaptive_formatter: function for formatting y-axis tick labels
+        tissue_order: optional list of tissue names to enforce subplot order
     """
     # Assemble data
     rows = []
     for key, sample in data_dict.items():
-        tissue, protocol = metadata[key]
+        tissue = metadata[key]["tissue"]
+        protocol = metadata[key]["protocol"]
         value = metric_func(sample)
         rows.append({"Tissue": tissue, "Protocol": protocol, "Value": value})
     df = pd.DataFrame(rows)
 
-    # Collect unique tissues and protocols
-    unique_tissues = df["Tissue"].unique()
+    # Determine tissue order
+    if tissue_order is None:
+        tissue_order = df["Tissue"].unique().tolist()
+
+    # Filter DataFrame to only include tissues in the specified order (preserving order)
+    df["Tissue"] = pd.Categorical(df["Tissue"], categories=tissue_order, ordered=True)
+    df = df.sort_values("Tissue")
+
     unique_protocols = df["Protocol"].unique()
 
+    # Create figure
     fig, axes = plt.subplots(
-        1, len(unique_tissues), figsize=(5 * len(unique_tissues), 5), sharey=True
+        1, len(tissue_order), figsize=(5 * len(tissue_order), 5), sharey=True
     )
-    if len(unique_tissues) == 1:
+    if len(tissue_order) == 1:
         axes = [axes]
 
     # Create color palette if not provided
@@ -55,11 +65,12 @@ def plot_scalar_metric(
         protocol_color_palette = sns.color_palette("husl", len(unique_protocols))
         protocol_color_palette = dict(zip(unique_protocols, protocol_color_palette))
 
-    # Plot
-    for i, tissue in enumerate(unique_tissues):
+    # Plot each tissue
+    for i, tissue in enumerate(tissue_order):
         ax = axes[i]
+        df_tissue = df[df["Tissue"] == tissue]
         sns.barplot(
-            data=df[df["Tissue"] == tissue],
+            data=df_tissue,
             x="Protocol",
             y="Value",
             hue="Protocol",
@@ -72,7 +83,6 @@ def plot_scalar_metric(
         ax.set_ylabel(metric_label if i == 0 else "")
         ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(adaptive_formatter))
 
-        # Optionally annotate bars
         if annotate:
             for p in ax.patches:
                 val = p.get_height()
@@ -85,13 +95,11 @@ def plot_scalar_metric(
                     weight="bold",
                 )
 
-    # Add title
+    # Add title and legend
     if not title:
         title = f"{metric_label} by Protocol Across Tissues"
 
     plt.suptitle(title, fontsize=16, weight="bold")
-
-    # Add legend
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     legend_elements = [
         mpl.patches.Patch(facecolor=color, label=label)
@@ -104,6 +112,7 @@ def plot_scalar_metric(
         bbox_to_anchor=(1.05, 1.05),
     )
     return fig
+
 
 
 def plot_adata_metric_histogram(
