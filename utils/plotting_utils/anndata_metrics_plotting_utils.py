@@ -19,7 +19,7 @@ def plot_scalar_metric(
     annotate: bool = True,
     protocol_color_palette: dict = None,
     adaptive_formatter: Callable = adaptive_formatter,
-    tissue_order: list | Tuple = None,  # NEW PARAM
+    tissue_order: list | Tuple = None,
 ):
     """
     Generic function to plot scalar metrics computed on each sample's data (AnnData or DataFrame),
@@ -116,8 +116,8 @@ def plot_scalar_metric(
 
 
 def plot_adata_metric_histogram(
-    adatas: Dict[str, sc.AnnData],
-    adata_metadata: Dict[str, tuple],
+    adata_dict: Dict[str, sc.AnnData],
+    sample_metadata: Dict[str, tuple],
     field: str,
     axis: str = "obs",
     bins: int = 100,
@@ -129,13 +129,14 @@ def plot_adata_metric_histogram(
     proportion: bool = False,
     protocol_color_palette: Dict[str, str] = None,
     nonzero: bool = True,
+    tissue_order: list | Tuple = None,
 ) -> None:
     """
     Plots the distribution of a field (column) from each AnnData object, grouped by tissue and protocol.
 
     Args:
-        adatas: Dictionary of AnnData objects keyed by sample ID (e.g., 'sf_ln').
-        adata_metadata: Dictionary mapping sample ID to (tissue, protocol) tuples.
+        adata_dict: Dictionary of AnnData objects keyed by sample ID (e.g., 'sf_ln').
+        sample_metadata: Dictionary mapping sample ID to (tissue, protocol) tuples.
         field: Column name to plot from .obs or .var (e.g., 'total_counts').
         axis: Whether to pull from .obs or .var (default: 'obs').
         bins: Number of histogram bins.
@@ -146,11 +147,13 @@ def plot_adata_metric_histogram(
         row_label: Label for the y-axis.
         protocol_color_palette: Optional dictionary mapping protocol names to colors.
         proportion: If True, plot proportions instead of counts.
+        tissue_order: optional list of tissue names to enforce subplot order
     """
     # Gather data
     rows = []
-    for key, adata in adatas.items():
-        tissue, protocol = adata_metadata[key]
+    for key, adata in adata_dict.items():
+        tissue = sample_metadata[key]["tissue"]
+        protocol = sample_metadata[key]["protocol"]
         values = getattr(adata, axis)[field]
         if log_x:
             values = np.log1p(values)
@@ -158,6 +161,14 @@ def plot_adata_metric_histogram(
             rows.append({"Tissue": tissue, "Protocol": protocol, "Value": val})
 
     df = pd.DataFrame(rows)
+
+    # Determine tissue order
+    if tissue_order is None:
+        tissue_order = df["Tissue"].unique().tolist()
+
+    # Filter DataFrame to only include tissues in the specified order (preserving order)
+    df["Tissue"] = pd.Categorical(df["Tissue"], categories=tissue_order, ordered=True)
+    df = df.sort_values("Tissue")
 
     # Collect unique tissues and protocols
     unique_tissues = df["Tissue"].unique()
@@ -210,7 +221,7 @@ def plot_adata_metric_histogram(
     # Axis scaling
     if log_x:
         raw_values = np.concatenate(
-            [getattr(adatas[key], axis)[field].to_numpy() for key in adatas]
+            [getattr(adata_dict[key], axis)[field].to_numpy() for key in adata_dict]
         )
         raw_values = raw_values[raw_values > 0]
         vmin, vmax = raw_values.min(), raw_values.max()
@@ -224,7 +235,7 @@ def plot_adata_metric_histogram(
             ax.set_xticklabels([f"{x:,}" for x in xticks_raw])
     else:
         all_values = np.concatenate(
-            [getattr(adatas[key], axis)[field].to_numpy() for key in adatas]
+            [getattr(adata_dict[key], axis)[field].to_numpy() for key in adata_dict]
         )
         vmin, vmax = all_values.min(), all_values.max()
         for ax in axes:
@@ -251,38 +262,49 @@ def plot_adata_metric_histogram(
 
 
 def plot_adata_metric_violin(
-    adatas: Dict[str, sc.AnnData],
-    adata_metadata: Dict[str, tuple],
+    adata_dict: Dict[str, sc.AnnData],
+    sample_metadata: Dict[str, tuple],
     field: str,
     axis: str = "obs",
     log_y: bool = True,
     y_label: str = "Value",
     title: str = None,
     protocol_color_palette: Dict[str, str] = None,
+    tissue_order: list | Tuple = None,
 ) -> None:
     """
     Plots a violin distribution of a given .obs or .var field from each AnnData object,
 
     Args:
-        adatas: Dictionary of AnnData objects keyed by sample ID (e.g., 'sf_ln').
-        adata_metadata: Dictionary mapping sample ID to (tissue, protocol) tuples.
+        adata_dict: Dictionary of AnnData objects keyed by sample ID (e.g., 'sf_ln').
+        sample_metadata: Dictionary mapping sample ID to (tissue, protocol) tuples.
         field: Column name to plot from .obs or .var (e.g., 'total_counts').
         axis: Whether to pull from .obs or .var (default: 'obs').
         log_y: Whether to apply log1p transformation to the y-axis values (default: True).
         title: Title of the entire figure.
         y_label: Label for the y-axis.
         protocol_color_palette: Optional dictionary mapping protocol names to colors.
+        tissue_order: optional list of tissue names to enforce subplot order
     """
     # Assemble data
     rows = []
-    for key, adata in adatas.items():
-        tissue, protocol = adata_metadata[key]
+    for key, adata in adata_dict.items():
+        tissue = sample_metadata[key]["tissue"]
+        protocol = sample_metadata[key]["protocol"]
         values = getattr(adata, axis)[field]
         if log_y:
             values = np.log1p(values)
         for val in values:
             rows.append({"Tissue": tissue, "Protocol": protocol, "Value": val})
     df = pd.DataFrame(rows)
+
+    # Determine tissue order
+    if tissue_order is None:
+        tissue_order = df["Tissue"].unique().tolist()
+
+    # Filter DataFrame to only include tissues in the specified order (preserving order)
+    df["Tissue"] = pd.Categorical(df["Tissue"], categories=tissue_order, ordered=True)
+    df = df.sort_values("Tissue")
 
     # Get unique tissues and protocols
     unique_tissues = df["Tissue"].unique()
@@ -325,7 +347,7 @@ def plot_adata_metric_violin(
     # Custom y-axis ticks if log-transformed
     if log_y:
         raw_values = np.concatenate(
-            [getattr(adatas[key], axis)[field].to_numpy() for key in adatas]
+            [getattr(adata_dict[key], axis)[field].to_numpy() for key in adata_dict]
         )
         raw_values = raw_values[raw_values > 0]
 

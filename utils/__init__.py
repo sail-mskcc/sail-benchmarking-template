@@ -1,7 +1,3 @@
-from .anndata_annotation_utils import (
-    add_gene_set_content_to_adatas,
-    compute_gene_category_qc_metrics,
-)
 from .plotting_utils import (
     plot_adata_metric_histogram,
     plot_adata_metric_violin,
@@ -23,7 +19,5 @@ __all__ = [
     "plot_cluster_protocol_stackplots",
     "plot_cluster_metric_boxplots",
     "plot_umap_by_obs_feature",
-    "compute_gene_category_qc_metrics",
-    "add_gene_set_content_to_adatas",
     "plot_categorical_stack_by_cluster",
 ]
