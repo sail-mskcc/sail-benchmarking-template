@@ -365,3 +365,96 @@ def plot_adata_metric_violin(
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     return fig
+
+
+def plot_obs_scatter_by_tissue(
+    adata_dict: Dict[str, sc.AnnData],
+    sample_metadata: Dict[str, tuple],
+    x_field: str,
+    y_field: str,
+    log_x: bool = True,
+    log_y: bool = False,
+    title: str = "Scatter Plot of Obs Fields by Tissue",
+    protocol_color_palette: Dict[str, str] = None,
+    shuffle: bool = True,
+    tissue_order: list | Tuple = None,
+) -> plt.Figure:
+    """
+    Plots scatter plot of two obs fields for each AnnData object, grouped by tissue.
+
+    Args:
+        adata_dict: Dictionary of AnnData objects.
+        sample_metadata: Dictionary mapping keys in adata_dict to dict with 'Tissue' and 'Protocol'.
+        x_field: Field in adata.obs for x-axis.
+        y_field: Field in adata.obs for y-axis.
+        log_x: Apply log1p to x-axis values.
+        log_y: Apply log1p to y-axis values.
+        title: Plot title.
+        protocol_color_palette: Optional dictionary for protocol-specific colors.
+        shuffle: If True, shuffle the data points to avoid overlap in scatter plot.
+        tissue_order: Optional list of tissue names to enforce subplot order.
+
+    Returns:
+        matplotlib Figure object.
+    """
+    rows = []
+    for key, adata in adata_dict.items():
+        tissue, protocol = sample_metadata[key]["tissue"], sample_metadata[key]["protocol"]
+        x = adata.obs[x_field]
+        y = adata.obs[y_field]
+        if log_x:
+            x = np.log1p(x)
+        if log_y:
+            y = np.log1p(y)
+        for xi, yi in zip(x, y):
+            rows.append(
+                {"Tissue": tissue, "Protocol": protocol, x_field: xi, y_field: yi}
+            )
+    df = pd.DataFrame(rows)
+
+    if shuffle:
+        df = df.sample(frac=1, random_state=0).reset_index(drop=True)
+
+    # Determine tissue order
+    if tissue_order is None:
+        tissue_order = df["Tissue"].unique().tolist()
+
+    # Filter DataFrame to only include tissues in the specified order (preserving order)
+    df["Tissue"] = pd.Categorical(df["Tissue"], categories=tissue_order, ordered=True)
+    df = df.sort_values("Tissue")
+
+    unique_tissues = df["Tissue"].unique()
+    sns.set_theme(style="white", font_scale=1.1)
+    fig, axes = plt.subplots(
+        1, len(unique_tissues), figsize=(5 * len(unique_tissues), 5), sharey=True
+    )
+    if len(unique_tissues) == 1:
+        axes = [axes]
+
+    for i, tissue in enumerate(unique_tissues):
+        ax = axes[i]
+        df_subset = df[df["Tissue"] == tissue]
+        if shuffle:
+            df_subset = df_subset.sample(frac=1, random_state=0).reset_index(drop=True)
+        sns.scatterplot(
+            data=df_subset,
+            x=x_field,
+            y=y_field,
+            hue="Protocol",
+            palette=protocol_color_palette,
+            alpha=0.8,
+            size=0.8,
+            ax=ax,
+            legend=False,
+            linewidth=0,
+        )
+        ax.set_title(tissue, fontsize=13, weight="bold")
+        ax.set_xlabel(f"log1p({x_field})" if log_x else x_field)
+        if i == 0:
+            ax.set_ylabel(f"log1p({y_field})" if log_y else y_field)
+        else:
+            ax.set_ylabel("")
+
+    plt.suptitle(title, fontsize=16, weight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    return fig
