@@ -11,6 +11,8 @@ from .plotting_utils import (
     plot_umap_by_obs_feature,
 )
 
+from .anndata_processing_utils import process_adata
+
 __all__ = [
     "plot_scalar_metric",
     "plot_adata_metric_histogram",
@@ -22,4 +24,5 @@ __all__ = [
     "plot_cluster_metric_boxplots",
     "plot_umap_by_obs_feature",
     "plot_categorical_stack_by_cluster",
+    "process_adata",
 ]

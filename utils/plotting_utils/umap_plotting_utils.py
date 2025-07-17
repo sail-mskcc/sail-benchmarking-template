@@ -88,6 +88,7 @@ def plot_umap_by_obs_feature(
     legend_bbox_to_anchor: tuple = None,
     fig_height: float = None,
     fig_width: float = None,
+    tissue_order: Optional[Tuple[str, ...]] = None,
 ) -> plt.Figure:
     """
     Plot UMAPs for each tissue colored by a feature in .obs.
@@ -102,12 +103,16 @@ def plot_umap_by_obs_feature(
         log_scale: Use log1p scale (applies to continuous features).
         clip_values: (low, high) quantiles to clip (e.g., (0.01, 0.99)).
         shuffle: Shuffle points before plotting (default True).
+        tissue_order: Order of tissues to plot.
 
     Returns:
         Matplotlib figure.
     """
     sns.set_theme(style="white")
     tissues = list(combined_by_tissue.keys())
+
+    # if tissue_order:
+    #     tissues = [t for t in tissue_order if t in tissues]
 
     if vertical:
         fig, axes = plt.subplots(

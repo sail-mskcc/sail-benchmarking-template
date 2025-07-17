@@ -28,10 +28,15 @@ SAMPLES_METADATA = {
     "SL_LN": {"tissue" : "Normal Liver", "protocol" : "Singulator+LeviCell"},
 }
 
-# Color palette for plotting
+# Color palettes
 PROTOCOL_COLOR_PALETTE = {
     "Singulator+FACS": "#AEC6CF",
     "Singulator+LeviCell": "#FFDAB9",
+}
+
+DOUBLET_COLOR_PALETTE = {
+    False: "#8DA57C",
+    True: "#f4c2c2",
 }
 
 TISSUE_ORDER = ("Normal Colon", "Tumor Colon", "Normal Liver")
